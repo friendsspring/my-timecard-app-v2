@@ -1,0 +1,172 @@
+# 04. API / Server Action 設計
+
+Next.js App Router の **Server Actions** を主要な書き込み手段として使う。
+読み取りは Server Component から DB を直接呼ぶ。
+
+## 4.1 共通ルール
+
+- すべての Server Action は実行前に `requireUser()` を呼び、未ログインなら `redirect('/login')`。
+- 入力は必ず `zod` で検証する。失敗時は `{ ok: false, error: { code, message, fieldErrors } }` を返す。
+- 成功時は `{ ok: true, data }`。
+- ミューテーション後は `revalidatePath()` で関連ページを再描画。
+- 例外は捕捉してログに残し、ユーザーには汎用メッセージのみ返す。
+
+```ts
+// 共通レスポンス型
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string; fieldErrors?: Record<string, string[]> } };
+```
+
+## 4.2 認証
+
+| ルート | メソッド | 説明 |
+|--------|----------|------|
+| `/login` | GET | Google ログインボタンを表示 |
+| `/api/auth/callback` | GET | Supabase OAuth コールバック |
+| `/api/auth/signout` | POST | サインアウトしてセッション破棄 |
+
+許可メールチェックはコールバック内で実施。許可外なら `signOut()` → `/login?error=forbidden`。
+
+## 4.3 プロジェクト
+
+### 4.3.1 一覧（読み取り）
+- 関数: `listProjects({ includeArchived?: boolean })`
+- 返り値: `Project[]`
+- 並び順: `archived_at NULLS FIRST, name ASC`
+
+### 4.3.2 作成 — `createProject`
+
+**入力 (zod)**
+```ts
+z.object({
+  name: z.string().trim().min(1).max(80),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#6366f1"),
+  defaultHourlyRate: z.coerce.number().int().min(0).max(1_000_000),
+  note: z.string().max(2000).optional(),
+});
+```
+
+**動作**: `user_id = auth.uid()` で挿入。`revalidatePath('/projects')`。
+
+### 4.3.3 更新 — `updateProject`
+- 入力: 上記 + `id`
+- 自分の所有 project に限る（RLS で保証）。
+
+### 4.3.4 アーカイブ／復元 — `setProjectArchived`
+- 入力: `{ id, archived: boolean }`
+- `archived_at = archived ? now() : null`
+
+### 4.3.5 削除 — v1 では不可
+- 過去打刻を保つためアーカイブのみ提供。
+
+## 4.4 打刻 (TimeEntry)
+
+### 4.4.1 進行中エントリ取得
+- 関数: `getOpenEntry()`
+- 返り値: `TimeEntry | null`
+
+### 4.4.2 開始 — `startEntry`
+
+**入力**
+```ts
+z.object({
+  projectId: z.string().uuid(),
+  memo: z.string().max(2000).optional(),
+});
+```
+
+**動作**:
+1. 既存の open entry があれば `error.code = "ALREADY_OPEN"` を返す。
+2. `started_at = now()`, `source = 'live'` で挿入。
+3. `revalidatePath('/')`.
+
+### 4.4.3 終了 — `stopEntry`
+
+**入力**: `{ id?: string, endedAt?: Date }`（省略時は現在の open entry を `now()` で終了）。
+**バリデーション**: `endedAt > started_at`。
+**動作**: `ended_at` を更新。
+
+### 4.4.4 手動追加 — `createManualEntry`
+
+**入力**
+```ts
+z.object({
+  projectId: z.string().uuid(),
+  startedAt: z.coerce.date(),
+  endedAt: z.coerce.date(),
+  memo: z.string().max(2000).optional(),
+}).refine(v => v.endedAt > v.startedAt, { message: "終了は開始より後の時刻を指定してください" });
+```
+
+**動作**: `source = 'manual'` で挿入。
+
+### 4.4.5 編集 — `updateEntry`
+
+**入力**: `id` + 任意の `projectId / startedAt / endedAt / memo`。
+**バリデーション**: 進行中でなければ `endedAt > startedAt`。
+
+### 4.4.6 削除 — `deleteEntry`
+- ソフトデリート（`deleted_at = now()`）。
+
+### 4.4.7 一覧取得（読み取り）
+- 関数: `listEntries({ yearMonth?, projectId?, limit?, cursor? })`
+- 返り値: `TimeEntry[] + nextCursor`
+- 並び順: `started_at DESC`
+
+## 4.5 月次レート
+
+### 4.5.1 取得
+- 関数: `getMonthlyRates({ yearMonth })` → `Map<projectId, hourlyRate>`
+
+### 4.5.2 設定 — `upsertMonthlyRate`
+
+**入力**
+```ts
+z.object({
+  projectId: z.string().uuid(),
+  yearMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  hourlyRate: z.coerce.number().int().min(0).max(1_000_000),
+});
+```
+
+**動作**: `(project_id, year_month)` の UNIQUE で `INSERT ... ON CONFLICT DO UPDATE`。
+
+### 4.5.3 削除 — `deleteMonthlyRate`
+- 入力: `{ projectId, yearMonth }`
+
+## 4.6 月次サマリー（読み取り）
+
+- 関数: `getMonthlySummary({ yearMonth })`
+- 返り値:
+```ts
+type MonthlySummary = {
+  yearMonth: string;
+  totalHours: number;
+  totalAmount: number;
+  perProject: Array<{
+    projectId: string;
+    projectName: string;
+    color: string;
+    hours: number;
+    appliedRate: number;
+    rateSource: "default" | "monthly";
+    amount: number;
+    entriesCount: number;
+  }>;
+};
+```
+
+実装は集計用 SQL を 1 本書いて、JST の月境界で UTC に変換した範囲でオーバーラップ計算する。
+（PoC 段階では Server Action 内で TS 計算でも可。`src/lib/billing/calc.ts` に切り出してテスト可能にする。）
+
+## 4.7 エラーコード一覧
+
+| code | 意味 | HTTP 相当 |
+|------|------|-----------|
+| `UNAUTHORIZED` | 未ログイン | 401 |
+| `FORBIDDEN` | 許可外メール / 他人のリソース | 403 |
+| `NOT_FOUND` | リソースが見つからない | 404 |
+| `VALIDATION_ERROR` | 入力検証失敗 | 422 |
+| `ALREADY_OPEN` | 進行中エントリが既に存在 | 409 |
+| `INTERNAL_ERROR` | サーバー内部エラー | 500 |
