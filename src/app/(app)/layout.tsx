@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock3, FolderKanban, ListChecks, BarChart3, LogOut } from "lucide-react";
+import { Clock3, LogOut } from "lucide-react";
 import { requireUser } from "@/lib/auth/guard";
 import { Button } from "@/components/ui/button";
 import { AppNav } from "./_nav";
@@ -8,10 +8,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
 
   const links = [
-    { href: "/dashboard", label: "ダッシュボード", icon: Clock3 },
-    { href: "/projects", label: "プロジェクト", icon: FolderKanban },
-    { href: "/entries", label: "打刻", icon: ListChecks },
-    { href: "/summary", label: "月次サマリー", icon: BarChart3 },
+    { href: "/dashboard", label: "ダッシュボード", iconKey: "dashboard" },
+    { href: "/projects", label: "プロジェクト", iconKey: "projects" },
+    { href: "/entries", label: "打刻", iconKey: "entries" },
+    { href: "/summary", label: "月次サマリー", iconKey: "summary" },
   ] as const;
 
   return (

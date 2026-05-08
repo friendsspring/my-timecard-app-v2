@@ -2,20 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
+import { BarChart3, Clock3, FolderKanban, ListChecks, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Link = {
+const ICONS: Record<string, LucideIcon> = {
+  dashboard: Clock3,
+  projects: FolderKanban,
+  entries: ListChecks,
+  summary: BarChart3,
+};
+
+type NavLink = {
   href: string;
   label: string;
-  icon: LucideIcon;
+  iconKey: keyof typeof ICONS;
 };
 
 export function AppNav({
   links,
   variant = "side",
 }: {
-  links: readonly Link[];
+  links: readonly NavLink[];
   variant?: "side" | "bottom";
 }) {
   const pathname = usePathname();
@@ -23,7 +30,8 @@ export function AppNav({
   if (variant === "bottom") {
     return (
       <ul className="flex">
-        {links.map(({ href, label, icon: Icon }) => {
+        {links.map(({ href, label, iconKey }) => {
+          const Icon = ICONS[iconKey];
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <li key={href} className="flex-1">
@@ -34,7 +42,7 @@ export function AppNav({
                   active ? "text-primary" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon className="h-5 w-5" />
+                {Icon ? <Icon className="h-5 w-5" /> : null}
                 {label}
               </Link>
             </li>
@@ -46,7 +54,8 @@ export function AppNav({
 
   return (
     <ul className="flex flex-col gap-1">
-      {links.map(({ href, label, icon: Icon }) => {
+      {links.map(({ href, label, iconKey }) => {
+        const Icon = ICONS[iconKey];
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <li key={href}>
@@ -59,7 +68,7 @@ export function AppNav({
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
-              <Icon className="h-4 w-4" />
+              {Icon ? <Icon className="h-4 w-4" /> : null}
               {label}
             </Link>
           </li>
