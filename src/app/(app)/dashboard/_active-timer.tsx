@@ -18,7 +18,9 @@ type Props = {
 
 export function ActiveTimer({ entry, project }: Props) {
   const startedAtMs = new Date(entry.startedAt).getTime();
-  const [now, setNow] = useState<number>(() => Date.now());
+  // SSRと初回ハイドレーション時は startedAtMs を初期値にして elapsed = 0 を描画する。
+  // マウント後に useEffect で本物の現在時刻に切り替えることでハイドレーション不一致を避ける。
+  const [now, setNow] = useState<number>(startedAtMs);
   const [memo, setMemo] = useState<string>(entry.memo ?? "");
   const [stopping, startStop] = useTransition();
   const [savingMemo, setSavingMemo] = useState(false);
@@ -26,6 +28,7 @@ export function ActiveTimer({ entry, project }: Props) {
   const router = useRouter();
 
   useEffect(() => {
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
