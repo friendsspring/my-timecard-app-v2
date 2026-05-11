@@ -62,6 +62,7 @@ npm install
 ### 3. Supabase プロジェクトを作成
 
 1. [Supabase Dashboard](https://supabase.com/dashboard) で新規プロジェクトを作成
+   - **Region は `Tokyo (ap-northeast-1)` を選択**（後述の「リージョン構成」参照。無料プランは作成後の変更不可）
 2. **Project Settings → API** から取得
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public key` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -130,8 +131,24 @@ npm run dev
 2. [Vercel](https://vercel.com/) で新規プロジェクトを作り、上記リポジトリを連携
 3. 環境変数を Vercel の Project Settings → Environment Variables に登録（`.env.example` の全項目）
 4. `NEXT_PUBLIC_APP_URL` は Vercel が払い出した URL（例: `https://my-timecard-app-v2.vercel.app`）を設定
+   （環境変数を変更後は再デプロイが必要:Deployments -> ... -> ReDeploy -> キャッシュは使わない）
 5. Google Cloud Console の OAuth クライアントの「承認済みリダイレクト URI」が Supabase 側のままで OK
    （Supabase 経由なのでアプリの URL が変わってもリダイレクト URI は変わりません）
+
+### デプロイ時の注意点
+- ログイン後のリダイレクト先がlocalhostになってしまう
+   - Vercelの環境変数で`NEXT_PUBLIC_APP_URL`がlocalhostになっている
+   - Supabaseの`Site URL`がlocalhostになっている（Project > Authentication > URL Configuration）
+      - localhostも許可したい場合は、`Redirect URLs`に定義する
+
+- レスポンスが遅い場合 → **Vercel と Supabase のリージョンを Tokyo に揃える**
+   - Supabaseのリージョンを確認（日本になっているか）
+      - `DATABASE_URL` のホスト名で判別: `ap-northeast-1` = 東京、`ap-southeast-1` = シンガポール、`us-east-1` = 米国
+      - 無料プランは作成後の変更不可。違っていればプロジェクト作り直し
+   - Vercelのリージョンを確認（日本になっているか）
+      - Project → Settings → Functions → Function Region で `Tokyo, Japan (hnd1)` を選択
+      - 変更後は Deployments → Redeploy（Build Cache はオフ推奨）で反映
+   - 影響度の目安: 米国 ↔ シンガポール構成では Server Action 1 回あたり 300〜500ms の追加遅延、揃えれば数十 ms
 
 ## ディレクトリ構成
 

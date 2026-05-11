@@ -142,6 +142,10 @@ my-timecard-app-v2/
 - **Git**: GitHub に push、main へのマージで自動的に Vercel 本番デプロイ。
 - **Preview**: PR 単位で Preview URL（Supabase は本番と共有 or Branch 機能で分離）。
 - **マイグレーション**: `drizzle-kit migrate` をローカル / CI から手動適用（個人運用なので自動化はオプション）。
+- **リージョン構成**: Vercel Functions と Supabase は **同一リージョン（Tokyo）に揃える**こと。
+  - Vercel: `Tokyo (hnd1)`（Project → Settings → Functions → Function Region）
+  - Supabase: `Tokyo (ap-northeast-1)`（プロジェクト作成時に選択。無料プランは変更不可）
+  - ミスマッチ時は Server Action 1 回あたり数百 ms の追加遅延が発生し、画面遷移の体感が明確に劣化する。
 
 ## 2.9 監視・ログ
 
