@@ -14,6 +14,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,9 +41,11 @@ const PRESET_COLORS = [
   "#64748b",
 ];
 
+type BillingOption = { id: string; name: string };
+
 type Props =
-  | { mode: "create"; project?: never }
-  | { mode: "edit"; project: Project };
+  | { mode: "create"; project?: never; billingClients: BillingOption[] }
+  | { mode: "edit"; project: Project; billingClients: BillingOption[] };
 
 export function ProjectFormDialog(props: Props) {
   const [open, setOpen] = useState(false);
@@ -48,6 +57,9 @@ export function ProjectFormDialog(props: Props) {
   const [color, setColor] = useState(initial?.color ?? PRESET_COLORS[0]!);
   const [rate, setRate] = useState<string>(String(initial?.defaultHourlyRate ?? "5000"));
   const [note, setNote] = useState(initial?.note ?? "");
+  const [billingClientId, setBillingClientId] = useState<string>(
+    initial?.billingClientId ?? "__none__",
+  );
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
   function reset() {
@@ -56,11 +68,13 @@ export function ProjectFormDialog(props: Props) {
       setColor(props.project.color);
       setRate(String(props.project.defaultHourlyRate));
       setNote(props.project.note ?? "");
+      setBillingClientId(props.project.billingClientId ?? "__none__");
     } else {
       setName("");
       setColor(PRESET_COLORS[0]!);
       setRate("5000");
       setNote("");
+      setBillingClientId("__none__");
     }
     setErrors({});
   }
@@ -75,6 +89,7 @@ export function ProjectFormDialog(props: Props) {
         color,
         defaultHourlyRate: rate,
         note: note || undefined,
+        billingClientId: billingClientId === "__none__" ? "" : billingClientId,
       };
 
       const result =
@@ -182,6 +197,24 @@ export function ProjectFormDialog(props: Props) {
                 {e}
               </p>
             ))}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="project-billing">請求先（任意）</Label>
+            <Select value={billingClientId} onValueChange={setBillingClientId}>
+              <SelectTrigger id="project-billing">
+                <SelectValue placeholder="未設定" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">未設定</SelectItem>
+                {props.billingClients.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">1 プロジェクトは 1 請求先のみ。請求先は「請求先」画面で追加します。</p>
           </div>
 
           <div className="space-y-2">

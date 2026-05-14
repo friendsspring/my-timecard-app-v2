@@ -44,6 +44,20 @@ export function jstMonthRangeToUtc(yearMonth: string): { start: Date; end: Date 
   };
 }
 
+/** "YYYY-MM" -> last calendar day "YYYY-MM-DD" (JST month; date-only, UTC-safe for JP). */
+export function jstYearMonthLastDateStr(yearMonth: string): string {
+  const [yearStr, monthStr] = yearMonth.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+    throw new Error(`Invalid yearMonth: ${yearMonth}`);
+  }
+  const last = new Date(Date.UTC(year, month, 0));
+  const d = String(last.getUTCDate()).padStart(2, "0");
+  const mm = String(month).padStart(2, "0");
+  return `${year}-${mm}-${d}`;
+}
+
 export function shiftYearMonth(yearMonth: string, delta: number): string {
   const [yearStr, monthStr] = yearMonth.split("-");
   const year = Number(yearStr);

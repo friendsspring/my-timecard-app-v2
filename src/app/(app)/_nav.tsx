@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Clock3, FolderKanban, ListChecks, type LucideIcon } from "lucide-react";
+import { BarChart3, Clock3, FileText, FolderKanban, ListChecks, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -10,6 +10,7 @@ const ICONS: Record<string, LucideIcon> = {
   projects: FolderKanban,
   entries: ListChecks,
   summary: BarChart3,
+  billing: FileText,
 };
 
 type NavLink = {

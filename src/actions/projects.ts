@@ -23,6 +23,13 @@ const projectSchema = z.object({
     .max(2000, "メモは2000文字以内で入力してください")
     .optional()
     .transform((v) => (v === "" ? undefined : v)),
+  billingClientId: z
+    .union([z.string().uuid(), z.literal(""), z.null()])
+    .optional()
+    .transform((v) => {
+      if (v === "" || v === undefined || v === null) return null;
+      return v;
+    }),
 });
 
 const idSchema = z.string().uuid();
@@ -59,13 +66,32 @@ export type CreateProjectInput = {
   color: string;
   defaultHourlyRate: number | string;
   note?: string | undefined;
+  billingClientId?: string | null;
 };
+
+async function assertBillingClientOwned(userId: string, billingClientId: string | null) {
+  if (billingClientId === null) return;
+  const rows = await db
+    .select({ id: schema.billingClients.id })
+    .from(schema.billingClients)
+    .where(and(eq(schema.billingClients.id, billingClientId), eq(schema.billingClients.userId, userId)))
+    .limit(1);
+  if (rows.length === 0) {
+    throw new Error("BILLING_CLIENT_INVALID");
+  }
+}
 
 export async function createProject(input: CreateProjectInput): Promise<ActionResult<{ id: string }>> {
   const user = await requireUser();
   const parsed = projectSchema.safeParse(input);
   if (!parsed.success) {
     return validationFail(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+  }
+
+  try {
+    await assertBillingClientOwned(user.id, parsed.data.billingClientId ?? null);
+  } catch {
+    return fail({ code: "VALIDATION_ERROR", message: "請求先の指定が不正です" });
   }
 
   try {
@@ -77,10 +103,12 @@ export async function createProject(input: CreateProjectInput): Promise<ActionRe
         color: parsed.data.color,
         defaultHourlyRate: parsed.data.defaultHourlyRate,
         note: parsed.data.note,
+        billingClientId: parsed.data.billingClientId ?? null,
       })
       .returning({ id: schema.projects.id });
     revalidatePath("/projects");
     revalidatePath("/dashboard");
+    revalidatePath("/billing");
     return ok({ id: row!.id });
   } catch (e) {
     console.error("createProject failed", e);
@@ -99,6 +127,15 @@ export async function updateProject(
     return validationFail(parsed.error.flatten().fieldErrors as Record<string, string[]>);
   }
 
+  const billingId = parsed.data.billingClientId ?? null;
+  if (billingId !== null) {
+    try {
+      await assertBillingClientOwned(user.id, billingId);
+    } catch {
+      return fail({ code: "VALIDATION_ERROR", message: "請求先の指定が不正です" });
+    }
+  }
+
   try {
     const result = await db
       .update(schema.projects)
@@ -107,6 +144,7 @@ export async function updateProject(
         color: parsed.data.color,
         defaultHourlyRate: parsed.data.defaultHourlyRate,
         note: parsed.data.note ?? null,
+        billingClientId: billingId,
         updatedAt: new Date(),
       })
       .where(and(eq(schema.projects.id, idCheck.data), eq(schema.projects.userId, user.id)))
@@ -118,6 +156,7 @@ export async function updateProject(
     revalidatePath("/projects");
     revalidatePath(`/projects/${idCheck.data}`);
     revalidatePath("/dashboard");
+    revalidatePath("/billing");
     return ok({ id: idCheck.data });
   } catch (e) {
     console.error("updateProject failed", e);
@@ -146,6 +185,7 @@ export async function setProjectArchived(input: {
     revalidatePath("/projects");
     revalidatePath(`/projects/${idCheck.data}`);
     revalidatePath("/dashboard");
+    revalidatePath("/billing");
     return ok({ id: idCheck.data });
   } catch (e) {
     console.error("setProjectArchived failed", e);

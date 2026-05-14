@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { getProject } from "@/actions/projects";
+import { listBillingClients } from "@/actions/billing-clients";
 import { listMonthlyRates } from "@/actions/rates";
 import { listEntries } from "@/actions/entries";
 import { Badge } from "@/components/ui/badge";
@@ -29,10 +30,12 @@ export default async function ProjectDetailPage({
   const project = await getProject(id);
   if (!project) notFound();
 
-  const [rates, recentEntries] = await Promise.all([
+  const [rates, recentEntries, billingClients] = await Promise.all([
     listMonthlyRates(project.id),
     listEntries({ projectId: project.id, limit: 20 }),
+    listBillingClients(),
   ]);
+  const billingOptions = billingClients.map((b) => ({ id: b.id, name: b.name }));
 
   return (
     <div className="space-y-6">
@@ -65,8 +68,8 @@ export default async function ProjectDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <ProjectFormDialog mode="edit" project={project} />
-          <ProjectMenu project={project} />
+          <ProjectFormDialog mode="edit" project={project} billingClients={billingOptions} />
+          <ProjectMenu project={project} billingClients={billingOptions} />
         </div>
       </header>
 
