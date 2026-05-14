@@ -25,6 +25,16 @@ function ensureInvoiceFont() {
   fontRegistered = true;
 }
 
+function resolveOptionalInvoiceLogo(): string | undefined {
+  const cwd = process.cwd();
+  const names = ["invoice-logo.png", "invoice-logo.jpg", "invoice-logo.jpeg", "invoice-logo.webp"] as const;
+  for (const name of names) {
+    const p = path.join(cwd, "public", name);
+    if (fs.existsSync(p)) return p;
+  }
+  return undefined;
+}
+
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
@@ -49,7 +59,8 @@ export async function GET(req: NextRequest) {
   try {
     ensureInvoiceFont();
     const pdfProps = previewToPdfProps(preview);
-    const buffer = await renderToBuffer(<InvoicePdfDocument {...pdfProps} />);
+    const logoSrc = resolveOptionalInvoiceLogo();
+    const buffer = await renderToBuffer(<InvoicePdfDocument {...pdfProps} logoSrc={logoSrc} />);
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
