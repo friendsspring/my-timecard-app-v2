@@ -73,6 +73,18 @@
 - [ ] `/summary` 画面（月セレクタ・カード一覧・合計）
 - [ ] サマリーから `/entries` へのドリルダウン
 
+## フェーズ 5.5: 請求先・請求書 PDF
+
+- [ ] `billing_clients` テーブル追加、`projects.billing_client_id` マイグレーション + RLS
+- [ ] `actions/billing-clients.ts`（list / create / update / delete）
+- [ ] `src/lib/billing/invoice.ts`（税計算・按分・プレースホルダ。`07-invoicing.md` 準拠）
+- [ ] `getInvoicePreview`（Server Function または内部関数）
+- [ ] PDF 生成（Route Handler 推奨: `app/api/invoices/pdf/route.ts`、`runtime = 'nodejs'`）または同等
+- [ ] `/billing` 一覧・モーダル（作成 / 編集）
+- [ ] `/billing/[clientId]/invoice`（月次プレビュー + ダウンロード）
+- [ ] `/projects`・`/projects/[id]` に請求先セレクト追加
+- [ ] `invoice.test.ts`（外税・内税按分・0 件警告フラグ）
+
 ## フェーズ 6: 仕上げ
 
 - [ ] レスポンシブ調整（PC / SP）
@@ -98,6 +110,7 @@
 ## 完了の定義（DoD）
 
 - 受け入れ基準（`01-requirements.md` 1.8）をすべて満たすこと。
+- 請求ロジックは **`07-invoicing.md` と単体テストで一致**していること。
 - 主要 Server Action が zod 検証 + エラーハンドリングを備えていること。
 - マイグレーションが `drizzle/` 配下にコミットされていること。
 - README に「ローカル起動手順 / Supabase 接続手順 / デプロイ手順」が書かれていること。

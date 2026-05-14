@@ -17,7 +17,13 @@ import { setProjectArchived } from "@/actions/projects";
 import type { Project } from "@/lib/db/schema";
 import { ProjectFormDialog } from "./_form-dialog";
 
-export function ProjectMenu({ project }: { project: Project }) {
+export function ProjectMenu({
+  project,
+  billingClients,
+}: {
+  project: Project;
+  billingClients: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const archived = !!project.archivedAt;
@@ -44,7 +50,7 @@ export function ProjectMenu({ project }: { project: Project }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <div className="px-1 py-1">
-          <ProjectFormDialog mode="edit" project={project} />
+          <ProjectFormDialog mode="edit" project={project} billingClients={billingClients} />
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={toggleArchive}>

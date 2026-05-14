@@ -1,4 +1,5 @@
 import { listProjects } from "@/actions/projects";
+import { listBillingClients } from "@/actions/billing-clients";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProjectFormDialog } from "./_form-dialog";
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
   const projects = await listProjects({ includeArchived: true });
+  const billingClients = await listBillingClients();
+  const billingOptions = billingClients.map((b) => ({ id: b.id, name: b.name }));
 
   const active = projects.filter((p) => !p.archivedAt);
   const archived = projects.filter((p) => p.archivedAt);
@@ -23,11 +26,11 @@ export default async function ProjectsPage() {
             稼働を記録する案件を管理します（{active.length} 件）
           </p>
         </div>
-        <ProjectFormDialog mode="create" />
+        <ProjectFormDialog mode="create" billingClients={billingOptions} />
       </header>
 
       {active.length === 0 ? (
-        <EmptyState />
+        <EmptyState billingClients={billingOptions} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {active.map((p) => (
@@ -42,7 +45,7 @@ export default async function ProjectsPage() {
                     />
                     <h2 className="truncate font-semibold">{p.name}</h2>
                   </div>
-                  <ProjectMenu project={p} />
+          <ProjectMenu project={p} billingClients={billingOptions} />
                 </div>
                 <div className="text-sm text-muted-foreground">
                   既定 <span className="tabular-nums text-foreground">{formatYen(p.defaultHourlyRate)}</span>
@@ -76,7 +79,7 @@ export default async function ProjectsPage() {
                         アーカイブ
                       </Badge>
                     </div>
-                    <ProjectMenu project={p} />
+            <ProjectMenu project={p} billingClients={billingOptions} />
                   </div>
                 </CardContent>
               </Card>
@@ -88,7 +91,7 @@ export default async function ProjectsPage() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ billingClients }: { billingClients: { id: string; name: string }[] }) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
@@ -101,7 +104,7 @@ function EmptyState() {
             プロジェクトを作成すると、ダッシュボードから打刻を開始できます。
           </p>
         </div>
-        <ProjectFormDialog mode="create" />
+        <ProjectFormDialog mode="create" billingClients={billingClients} />
       </CardContent>
     </Card>
   );

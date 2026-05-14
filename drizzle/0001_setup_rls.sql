@@ -19,3 +19,10 @@ drop policy if exists "own_monthly_rates" on "monthly_rates";
 create policy "own_monthly_rates" on "monthly_rates"
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+alter table "billing_clients" enable row level security;
+
+drop policy if exists "own_billing_clients" on "billing_clients";
+create policy "own_billing_clients" on "billing_clients"
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());

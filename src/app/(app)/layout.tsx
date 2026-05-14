@@ -12,6 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/projects", label: "プロジェクト", iconKey: "projects" },
     { href: "/entries", label: "打刻", iconKey: "entries" },
     { href: "/summary", label: "月次サマリー", iconKey: "summary" },
+    { href: "/billing", label: "請求先", iconKey: "billing" },
   ] as const;
 
   return (
