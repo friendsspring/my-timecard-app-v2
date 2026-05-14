@@ -43,7 +43,7 @@ export type InvoicePreview = {
   grandTotal: number;
   /** 内税のみ（うち消費税等） */
   implicitTax?: number;
-  warnings: { code: "NO_PROJECTS" }[];
+  warnings: Array<{ code: "NO_PROJECTS" } | { code: "ALL_ZERO_HOURS" }>;
   bankInfo: string | null;
   pdfFilenameTemplate: string;
 };
@@ -113,27 +113,39 @@ export async function loadInvoicePreview(
 
   const amountByProject = new Map(summary.perProject.map((p) => [p.projectId, p]));
 
-  const lineBases = clientProjects.map((p) => amountByProject.get(p.id)?.amount ?? 0);
-  const inclusiveAlloc =
-    c.taxMode === "inclusive" ? allocateInclusiveLineTotals(lineBases) : null;
-
-  const lines: InvoiceLinePreview[] = clientProjects.map((p, i) => {
+  type RawRow = { projectId: string; projectName: string; hours: number; lineBase: number };
+  const rawRows: RawRow[] = clientProjects.map((p) => {
     const s = amountByProject.get(p.id);
-    const hours = s?.hours ?? 0;
-    const lineBase = s?.amount ?? 0;
-    const displaySubtotal =
-      c.taxMode === "exclusive" ? lineBase : inclusiveAlloc!.inclusiveLines[i] ?? 0;
     return {
       projectId: p.id,
       projectName: p.name,
-      hours,
-      lineBase,
-      displaySubtotal,
+      hours: s?.hours ?? 0,
+      lineBase: s?.amount ?? 0,
     };
   });
 
+  /** PDF・プレビュー明細: 当月稼働が 0 時間のプロジェクトは含めない */
+  const billedRows = rawRows.filter((r) => r.hours > 0);
+  const lineBases = billedRows.map((r) => r.lineBase);
+  const inclusiveAlloc =
+    c.taxMode === "inclusive" ? allocateInclusiveLineTotals(lineBases) : null;
+
+  const lines: InvoiceLinePreview[] = billedRows.map((r, i) => ({
+    projectId: r.projectId,
+    projectName: r.projectName,
+    hours: r.hours,
+    lineBase: r.lineBase,
+    displaySubtotal:
+      c.taxMode === "exclusive" ? r.lineBase : inclusiveAlloc!.inclusiveLines[i] ?? 0,
+  }));
+
   const S = lineBases.reduce((a, b) => a + b, 0);
-  const warnings = clientProjects.length === 0 ? [{ code: "NO_PROJECTS" as const }] : [];
+  const warnings: InvoicePreview["warnings"] = [];
+  if (clientProjects.length === 0) {
+    warnings.push({ code: "NO_PROJECTS" });
+  } else if (billedRows.length === 0) {
+    warnings.push({ code: "ALL_ZERO_HOURS" });
+  }
 
   const ctx = { yearMonth, clientName: c.name };
   const subjectResolved = applyInvoiceTemplate(c.subject, ctx);

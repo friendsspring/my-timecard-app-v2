@@ -53,6 +53,11 @@ export default async function InvoicePage({
           この請求先に紐づくプロジェクトがありません。PDF は空の明細で出力されます。
         </div>
       ) : null}
+      {preview.warnings.some((w) => w.code === "ALL_ZERO_HOURS") ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+          紐づくプロジェクトはありますが、対象月の稼働がすべて 0 時間のため、明細は空です。PDF も同様です。
+        </div>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-2">
