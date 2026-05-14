@@ -23,7 +23,7 @@
 | データ取得 | **Server Components + Server Actions** | Client コンポーネントではミューテーションのみ呼び出す |
 | 日付処理 | **date-fns / date-fns-tz** | 軽量・ツリーシェイク可能 / JST 変換 |
 | バリデーション | **zod** | Server Action 入力検証 |
-| テスト | **vitest** + **@testing-library/react** | 軽量、設定が簡単 |
+| PDF 生成 | **`@react-pdf/renderer`**（候補: `pdf-lib`） | サーバー（Node Runtime）で PDF を生成しダウンロードレスポンスを返す。Edge 非対応時は route segment `runtime = 'nodejs'`。 |
 | Lint / Format | **ESLint + Prettier** (Next.js 標準) | |
 | CI | **GitHub Actions**（型チェック・lint・test） | 無料 |
 
@@ -92,7 +92,9 @@ my-timecard-app-v2/
 │  │  │  ├─ projects/page.tsx
 │  │  │  ├─ projects/[id]/page.tsx
 │  │  │  ├─ entries/page.tsx
-│  │  │  └─ summary/page.tsx
+│  │  │  ├─ summary/page.tsx
+│  │  │  ├─ billing/page.tsx
+│  │  │  └─ billing/[clientId]/invoice/page.tsx
 │  │  ├─ api/auth/callback/route.ts
 │  │  └─ layout.tsx
 │  ├─ components/
@@ -110,11 +112,13 @@ my-timecard-app-v2/
 │  │  ├─ time/
 │  │  │  └─ jst.ts             # JST 変換ヘルパー
 │  │  └─ billing/
-│  │     └─ calc.ts            # 集計ロジック
+│  │     ├─ calc.ts             # 月次集計
+│  │     └─ invoice.ts         # 請求計算・プレースホルダ・PDF 用モデル
 │  ├─ actions/                 # Server Actions
 │  │  ├─ projects.ts
 │  │  ├─ entries.ts
-│  │  └─ rates.ts
+│  │  ├─ rates.ts
+│  │  └─ billing-clients.ts
 │  └─ types/
 ├─ drizzle/                     # マイグレーション
 ├─ tests/
