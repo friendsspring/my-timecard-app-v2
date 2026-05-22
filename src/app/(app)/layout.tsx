@@ -3,6 +3,7 @@ import { Clock3, LogOut } from "lucide-react";
 import { requireUser } from "@/lib/auth/guard";
 import { Button } from "@/components/ui/button";
 import { AppNav } from "./_nav";
+import { EntriesSyncRefresh } from "./_entries-sync";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -17,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-muted/30">
+      <EntriesSyncRefresh />
       <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur">
         <div className="container flex h-14 items-center justify-between gap-4">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">

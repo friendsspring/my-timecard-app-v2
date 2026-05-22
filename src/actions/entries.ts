@@ -70,6 +70,47 @@ export async function getOpenEntry() {
   return rows[0] ?? null;
 }
 
+/** 別端末・別タブでの打刻変更検知用（メモ保存の updated_at は含めない） */
+export async function getEntriesSyncRevision(): Promise<string> {
+  const user = await requireUser();
+
+  const [openRows, recentRows] = await Promise.all([
+    db
+      .select({
+        id: schema.timeEntries.id,
+        startedAt: schema.timeEntries.startedAt,
+      })
+      .from(schema.timeEntries)
+      .where(
+        and(
+          eq(schema.timeEntries.userId, user.id),
+          isNull(schema.timeEntries.endedAt),
+          isNull(schema.timeEntries.deletedAt),
+        ),
+      )
+      .limit(1),
+    db
+      .select({
+        id: schema.timeEntries.id,
+        startedAt: schema.timeEntries.startedAt,
+        endedAt: schema.timeEntries.endedAt,
+      })
+      .from(schema.timeEntries)
+      .where(
+        and(eq(schema.timeEntries.userId, user.id), isNull(schema.timeEntries.deletedAt)),
+      )
+      .orderBy(desc(schema.timeEntries.startedAt))
+      .limit(10),
+  ]);
+
+  const open = openRows[0];
+  const openPart = open ? `${open.id}:${open.startedAt.getTime()}` : "";
+  const recentPart = recentRows
+    .map((e) => `${e.id}:${e.startedAt.getTime()}:${e.endedAt?.getTime() ?? ""}`)
+    .join(",");
+  return `${openPart}|${recentPart}`;
+}
+
 export async function startEntry(input: {
   projectId: string;
   memo?: string;
