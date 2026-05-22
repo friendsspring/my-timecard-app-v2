@@ -125,7 +125,7 @@ npm run dev
 | `npm run db:migrate` | DB にマイグレーションを適用 |
 | `npm run db:studio` | Drizzle Studio を起動 |
 
-## デプロイ（Vercel）
+## 初回デプロイ（Vercel）
 
 1. このリポジトリを GitHub に push
 2. [Vercel](https://vercel.com/) で新規プロジェクトを作り、上記リポジトリを連携
@@ -134,6 +134,10 @@ npm run dev
    （環境変数を変更後は再デプロイが必要:Deployments -> ... -> ReDeploy -> キャッシュは使わない）
 5. Google Cloud Console の OAuth クライアントの「承認済みリダイレクト URI」が Supabase 側のままで OK
    （Supabase 経由なのでアプリの URL が変わってもリダイレクト URI は変わりません）
+
+## 2回目以降のデプロイ（Vercel）
+
+1. mainブランチをGitHubにpushすれば、Vercelが自動でデプロイしてくれる
 
 ### デプロイ時の注意点
 - ログイン後のリダイレクト先がlocalhostになってしまう
