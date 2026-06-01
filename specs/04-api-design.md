@@ -137,7 +137,34 @@ z.object({
 ### 4.5.3 削除 — `deleteMonthlyRate`
 - 入力: `{ projectId, yearMonth }`
 
-## 4.6 月次サマリー（読み取り）
+## 4.6 請求書任意明細 (`project_invoice_extras`)
+
+### 4.6.1 一覧（読み取り）
+- 関数: `listProjectInvoiceExtras(projectId)`
+- 返り値: `ProjectInvoiceExtra[]`
+- 並び順: `year_month ASC`, `sort_order ASC`, `created_at ASC`
+
+### 4.6.2 追加 — `createProjectInvoiceExtra`
+
+**入力 (zod)**
+```ts
+z.object({
+  projectId: z.string().uuid(),
+  yearMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  label: z.string().trim().min(1).max(120),
+  amount: z.coerce.number().int().min(0).max(100_000_000),
+});
+```
+
+**動作**: 自分のプロジェクトであることを検証後に挿入。`revalidatePath('/projects/[id]')`、請求先が割当済みなら `/billing/[clientId]/invoice` も。
+
+### 4.6.3 削除 — `deleteProjectInvoiceExtra`
+- 入力: `{ id, projectId }`（所有・プロジェクト一致を検証）。
+
+### 4.6.4 更新 — v1 では不可
+- 誤登録は削除して再追加。
+
+## 4.7 月次サマリー（読み取り）
 
 - 関数: `getMonthlySummary({ yearMonth })`
 - 返り値:
@@ -162,13 +189,13 @@ type MonthlySummary = {
 実装は集計用 SQL を 1 本書いて、JST の月境界で UTC に変換した範囲でオーバーラップ計算する。
 （PoC 段階では Server Action 内で TS 計算でも可。`src/lib/billing/calc.ts` に切り出してテスト可能にする。）
 
-## 4.7 請求先 (Billing Client)
+## 4.8 請求先 (Billing Client)
 
-### 4.7.1 一覧（読み取り）
+### 4.8.1 一覧（読み取り）
 - 関数: `listBillingClients()`
 - 並び順: `name ASC`
 
-### 4.7.2 作成 — `createBillingClient`
+### 4.8.2 作成 — `createBillingClient`
 
 **入力 (zod)**
 ```ts
@@ -183,21 +210,21 @@ z.object({
 });
 ```
 
-### 4.7.3 更新 — `updateBillingClient`
+### 4.8.3 更新 — `updateBillingClient`
 - 上記フィールド + `id`（UUID）。
 
-### 4.7.4 削除 — `deleteBillingClient`
+### 4.8.4 削除 — `deleteBillingClient`
 - 入力: `{ id }`
 - **参照中の `projects.billing_client_id` は `ON DELETE SET NULL`** で未割当になる（DB 定義）。削除前に UI で確認。
 
-## 4.8 請求書 PDF
+## 4.9 請求書 PDF
 
-### 4.8.1 プレビュー用データ（読み取り、任意）
+### 4.9.1 プレビュー用データ（読み取り、任意）
 - 関数: `getInvoicePreview({ billingClientId, yearMonth })`
-- 返り値: 明細行（プロジェクト名 / 時間 / `line_base`）、税モード別の `S` / `tax` / `T`、置換済み件名、請求日（JST 末日）、警告フラグ（対象プロジェクト 0 件など）。
-- 実装は `src/lib/billing/invoice.ts`（純粋関数＋ DB 読込）に寄せ、`07-invoicing.md` と突合テスト可能にする。
+- 返り値: 明細行（`kind`: `hourly` | `extra`、項目表示名 / 時間 or `null` / `line_base` / `displaySubtotal`）、税モード別の `S` / `tax` / `T`、置換済み件名、請求日（JST 末日）、警告フラグ（対象プロジェクト 0 件、明細空など）。
+- 実装は `src/lib/billing/invoice-lines.ts`（行組み立て）と `src/lib/billing/invoice.ts`（税計算）に分離し、`07-invoicing.md` と突合テスト可能にする。
 
-### 4.8.2 PDF 生成 — `downloadInvoicePdf`（または Route Handler）
+### 4.9.2 PDF 生成 — `downloadInvoicePdf`（または Route Handler）
 
 **入力**
 ```ts
@@ -215,7 +242,7 @@ z.object({
 
 **Client 側**: `<a download>` は cross-origin で効かない場合があるため、**Blob URL** または **フォーム POST → 新規タブ**等の一般的パターンに従う（実装タスクで確定）。
 
-## 4.9 エラーコード一覧
+## 4.10 エラーコード一覧
 
 | code | 意味 | HTTP 相当 |
 |------|------|-----------|
