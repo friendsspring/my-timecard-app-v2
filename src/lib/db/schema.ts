@@ -120,6 +120,39 @@ export const monthlyRates = pgTable(
   }),
 );
 
+/** 請求書用の任意明細（時給換算とは別、プロジェクト×月単位） */
+export const projectInvoiceExtras = pgTable(
+  "project_invoice_extras",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    yearMonth: text("year_month").notNull(),
+    label: text("label").notNull(),
+    amount: integer("amount").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    yearMonthFormat: check(
+      "project_invoice_extras_year_month_format",
+      sql`${t.yearMonth} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`,
+    ),
+    labelLength: check(
+      "project_invoice_extras_label_length",
+      sql`char_length(${t.label}) between 1 and 120`,
+    ),
+    amountRange: check(
+      "project_invoice_extras_amount_range",
+      sql`${t.amount} >= 0 and ${t.amount} <= 100000000`,
+    ),
+    projectMonthIdx: index("project_invoice_extras_project_month").on(t.projectId, t.yearMonth),
+  }),
+);
+
 export type BillingClient = typeof billingClients.$inferSelect;
 export type NewBillingClient = typeof billingClients.$inferInsert;
 export type TaxMode = "inclusive" | "exclusive";
@@ -129,3 +162,5 @@ export type TimeEntry = typeof timeEntries.$inferSelect;
 export type NewTimeEntry = typeof timeEntries.$inferInsert;
 export type MonthlyRate = typeof monthlyRates.$inferSelect;
 export type NewMonthlyRate = typeof monthlyRates.$inferInsert;
+export type ProjectInvoiceExtra = typeof projectInvoiceExtras.$inferSelect;
+export type NewProjectInvoiceExtra = typeof projectInvoiceExtras.$inferInsert;

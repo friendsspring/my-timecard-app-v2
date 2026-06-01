@@ -1,26 +1,33 @@
 import "server-only";
 
 import { fromZonedTime } from "date-fns-tz";
-import { and, asc, eq, gt, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/auth/guard";
 import { JST, jstMonthRangeToUtc, jstYearMonthLastDateStr, formatJstDateWithWeekday } from "@/lib/time/jst";
 import { computeMonthlySummary } from "@/lib/billing/calc";
 import {
-  allocateInclusiveLineTotals,
   applyInvoiceTemplate,
   computeExclusiveFromSubtotal,
   computeInclusiveFromTotal,
   formatHoursForInvoice,
   type TaxMode,
 } from "@/lib/billing/invoice";
+import {
+  buildInvoiceLines,
+  invoiceLineDescription,
+  type InvoiceLineKind,
+} from "@/lib/billing/invoice-lines";
 import { formatYen } from "@/lib/format";
 
 export type InvoiceLinePreview = {
+  kind: InvoiceLineKind;
   projectId: string;
   projectName: string;
-  hours: number;
+  /** 任意明細の項目名（kind=extra のとき） */
+  label?: string;
+  hours: number | null;
   lineBase: number;
   /** PDF 明細の小計（外税=税抜、内税=税込按分後） */
   displaySubtotal: number;
@@ -91,6 +98,25 @@ export async function loadInvoicePreview(
       .where(and(eq(schema.monthlyRates.userId, userId), eq(schema.monthlyRates.yearMonth, yearMonth))),
   ]);
 
+  const clientProjectIds = clientProjects.map((p) => p.id);
+  const invoiceExtras =
+    clientProjectIds.length > 0
+      ? await db
+          .select()
+          .from(schema.projectInvoiceExtras)
+          .where(
+            and(
+              eq(schema.projectInvoiceExtras.userId, userId),
+              eq(schema.projectInvoiceExtras.yearMonth, yearMonth),
+              inArray(schema.projectInvoiceExtras.projectId, clientProjectIds),
+            ),
+          )
+          .orderBy(
+            asc(schema.projectInvoiceExtras.sortOrder),
+            asc(schema.projectInvoiceExtras.createdAt),
+          )
+      : [];
+
   const summary = computeMonthlySummary({
     yearMonth,
     projects: allProjects.map((p) => ({
@@ -114,37 +140,46 @@ export async function loadInvoicePreview(
 
   const amountByProject = new Map(summary.perProject.map((p) => [p.projectId, p]));
 
-  type RawRow = { projectId: string; projectName: string; hours: number; lineBase: number };
-  const rawRows: RawRow[] = clientProjects.map((p) => {
+  const extrasByProject = new Map<string, typeof invoiceExtras>();
+  for (const ex of invoiceExtras) {
+    const list = extrasByProject.get(ex.projectId) ?? [];
+    list.push(ex);
+    extrasByProject.set(ex.projectId, list);
+  }
+
+  const lineInputs = clientProjects.flatMap((p) => {
     const s = amountByProject.get(p.id);
-    return {
-      projectId: p.id,
-      projectName: p.name,
-      hours: s?.hours ?? 0,
-      lineBase: s?.amount ?? 0,
-    };
+    const hours = s?.hours ?? 0;
+    const lineBase = s?.amount ?? 0;
+    const rows: Parameters<typeof buildInvoiceLines>[0] = [];
+    if (hours > 0) {
+      rows.push({
+        kind: "hourly",
+        projectId: p.id,
+        projectName: p.name,
+        hours,
+        lineBase,
+      });
+    }
+    for (const ex of extrasByProject.get(p.id) ?? []) {
+      rows.push({
+        kind: "extra",
+        projectId: p.id,
+        projectName: p.name,
+        label: ex.label,
+        hours: null,
+        lineBase: ex.amount,
+      });
+    }
+    return rows;
   });
 
-  /** PDF・プレビュー明細: 当月稼働が 0 時間のプロジェクトは含めない */
-  const billedRows = rawRows.filter((r) => r.hours > 0);
-  const lineBases = billedRows.map((r) => r.lineBase);
-  const inclusiveAlloc =
-    c.taxMode === "inclusive" ? allocateInclusiveLineTotals(lineBases) : null;
-
-  const lines: InvoiceLinePreview[] = billedRows.map((r, i) => ({
-    projectId: r.projectId,
-    projectName: r.projectName,
-    hours: r.hours,
-    lineBase: r.lineBase,
-    displaySubtotal:
-      c.taxMode === "exclusive" ? r.lineBase : inclusiveAlloc!.inclusiveLines[i] ?? 0,
-  }));
-
-  const S = lineBases.reduce((a, b) => a + b, 0);
+  const lines = buildInvoiceLines(lineInputs, c.taxMode);
+  const S = lines.reduce((a, l) => a + l.lineBase, 0);
   const warnings: InvoicePreview["warnings"] = [];
   if (clientProjects.length === 0) {
     warnings.push({ code: "NO_PROJECTS" });
-  } else if (billedRows.length === 0) {
+  } else if (lines.length === 0) {
     warnings.push({ code: "ALL_ZERO_HOURS" });
   }
 
@@ -174,7 +209,7 @@ export async function loadInvoicePreview(
     };
   }
 
-  const { subtotalExcl, implicitTax, totalIncl } = computeInclusiveFromTotal(inclusiveAlloc!.total);
+  const { subtotalExcl, implicitTax, totalIncl } = computeInclusiveFromTotal(S);
   return {
     billingClientId: c.id,
     yearMonth,
@@ -212,8 +247,8 @@ export function previewToPdfProps(preview: InvoicePreview) {
     yearMonth: preview.yearMonth,
     bankInfo: preview.bankInfo,
     lines: preview.lines.map((l) => ({
-      projectName: l.projectName,
-      hours: formatHoursForInvoice(l.hours),
+      description: invoiceLineDescription(l),
+      hours: l.hours !== null ? formatHoursForInvoice(l.hours) : "—",
       subtotal: formatYen(l.displaySubtotal),
     })),
     exclusive:

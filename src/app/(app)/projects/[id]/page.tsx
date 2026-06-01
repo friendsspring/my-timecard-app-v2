@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { getProject } from "@/actions/projects";
 import { listBillingClients } from "@/actions/billing-clients";
 import { listMonthlyRates } from "@/actions/rates";
+import { listProjectInvoiceExtras } from "@/actions/project-invoice-extras";
 import { listEntries } from "@/actions/entries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ProjectFormDialog } from "../_form-dialog";
 import { ProjectMenu } from "../_project-menu";
 import { MonthlyRateSection } from "./_monthly-rate-section";
+import { InvoiceExtraSection } from "./_invoice-extra-section";
 import {
   currentYearMonthJst,
   formatJstDateWithWeekday,
@@ -30,8 +32,9 @@ export default async function ProjectDetailPage({
   const project = await getProject(id);
   if (!project) notFound();
 
-  const [rates, recentEntries, billingClients] = await Promise.all([
+  const [rates, invoiceExtras, recentEntries, billingClients] = await Promise.all([
     listMonthlyRates(project.id),
+    listProjectInvoiceExtras(project.id),
     listEntries({ projectId: project.id, limit: 20 }),
     listBillingClients(),
   ]);
@@ -85,6 +88,17 @@ export default async function ProjectDetailPage({
         projectId={project.id}
         currentYearMonth={currentYearMonthJst()}
         rates={rates.map((r) => ({ yearMonth: r.yearMonth, hourlyRate: r.hourlyRate }))}
+      />
+
+      <InvoiceExtraSection
+        projectId={project.id}
+        currentYearMonth={currentYearMonthJst()}
+        extras={invoiceExtras.map((ex) => ({
+          id: ex.id,
+          yearMonth: ex.yearMonth,
+          label: ex.label,
+          amount: ex.amount,
+        }))}
       />
 
       <section className="space-y-3">

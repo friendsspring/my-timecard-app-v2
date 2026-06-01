@@ -10,7 +10,7 @@ export type InvoicePdfProps = {
   invoiceDate: string;
   yearMonth: string;
   bankInfo: string | null;
-  lines: { projectName: string; hours: string; subtotal: string }[];
+  lines: { description: string; hours: string; subtotal: string }[];
   exclusive?: { subtotal: string; tax: string; total: string };
   inclusive?: { total: string; implicitTax: string; subtotalBody: string };
 };
@@ -206,7 +206,7 @@ export function InvoicePdfDocument(props: InvoicePdfProps) {
         <Text style={styles.sectionLabel}>明細</Text>
         <View style={styles.tableShell}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.colName, styles.th]}>プロジェクト</Text>
+            <Text style={[styles.colName, styles.th]}>項目</Text>
             <Text style={[styles.colHours, styles.th]}>稼働時間</Text>
             <Text style={[styles.colAmount, styles.th]}>{subtotalLabel}</Text>
           </View>
@@ -216,8 +216,8 @@ export function InvoicePdfDocument(props: InvoicePdfProps) {
             props.lines.map((line, i) => {
               const isLast = i === props.lines.length - 1;
               return (
-                <View key={`${line.projectName}-${i}`} style={isLast ? styles.tableRowLast : styles.tableRow} wrap={false}>
-                  <Text style={styles.colName}>{line.projectName}</Text>
+                <View key={`${line.description}-${i}`} style={isLast ? styles.tableRowLast : styles.tableRow} wrap={false}>
+                  <Text style={styles.colName}>{line.description}</Text>
                   <Text style={styles.colHours}>{line.hours}</Text>
                   <Text style={styles.colAmount}>{line.subtotal}</Text>
                 </View>
