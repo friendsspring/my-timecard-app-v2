@@ -11,6 +11,7 @@ import {
   allocateInclusiveLineTotals,
   applyInvoiceTemplate,
   computeExclusiveFromSubtotal,
+  computeInclusiveFromTotal,
   formatHoursForInvoice,
   type TaxMode,
 } from "@/lib/billing/invoice";
@@ -173,7 +174,7 @@ export async function loadInvoicePreview(
     };
   }
 
-  const T = inclusiveAlloc!.total;
+  const { subtotalExcl, implicitTax, totalIncl } = computeInclusiveFromTotal(inclusiveAlloc!.total);
   return {
     billingClientId: c.id,
     yearMonth,
@@ -184,9 +185,9 @@ export async function loadInvoicePreview(
     invoiceDateStr,
     invoiceDateDisplay,
     lines,
-    subtotalExcl: S,
-    implicitTax: T - S,
-    grandTotal: T,
+    subtotalExcl,
+    implicitTax,
+    grandTotal: totalIncl,
     warnings,
     bankInfo: c.bankInfo,
     pdfFilenameTemplate: c.pdfFilenameTemplate,

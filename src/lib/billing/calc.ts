@@ -1,6 +1,15 @@
 import { msToHours } from "@/lib/format";
 import { jstMonthRangeToUtc } from "@/lib/time/jst";
 
+/** 請求額・line_base の丸め単位（円）。100円未満は切り捨て。 */
+export const BILLING_AMOUNT_UNIT = 100;
+
+/** 請求額を指定単位未満切り捨て（デフォルト 100円）。 */
+export function floorToBillingUnit(amount: number, unit = BILLING_AMOUNT_UNIT): number {
+  if (amount <= 0 || unit <= 0) return 0;
+  return Math.floor(amount / unit) * unit;
+}
+
 export type EntryForBilling = {
   id: string;
   projectId: string;
@@ -84,7 +93,7 @@ export function computeMonthlySummary(params: {
     const appliedRate = monthly ?? project.defaultHourlyRate;
     const rateSource: ProjectSummary["rateSource"] = monthly !== undefined ? "monthly" : "default";
     const hours = msToHours(bucket.ms);
-    const amount = Math.round(hours * appliedRate);
+    const amount = floorToBillingUnit(Math.round(hours * appliedRate));
     perProject.push({
       projectId,
       projectName: project.name,

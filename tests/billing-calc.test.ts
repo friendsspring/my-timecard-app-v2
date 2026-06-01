@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeMonthlySummary, overlapMs } from "@/lib/billing/calc";
+import {
+  BILLING_AMOUNT_UNIT,
+  computeMonthlySummary,
+  floorToBillingUnit,
+  overlapMs,
+} from "@/lib/billing/calc";
 import { jstMonthRangeToUtc } from "@/lib/time/jst";
 
 const project = {
@@ -18,6 +23,23 @@ const project2 = {
 function utc(iso: string) {
   return new Date(iso);
 }
+
+describe("floorToBillingUnit", () => {
+  it("100円未満は切り捨て", () => {
+    expect(floorToBillingUnit(12_399)).toBe(12_300);
+    expect(floorToBillingUnit(99)).toBe(0);
+    expect(floorToBillingUnit(100)).toBe(100);
+  });
+
+  it("0以下は0", () => {
+    expect(floorToBillingUnit(0)).toBe(0);
+    expect(floorToBillingUnit(-50)).toBe(0);
+  });
+
+  it("単位は BILLING_AMOUNT_UNIT と一致", () => {
+    expect(BILLING_AMOUNT_UNIT).toBe(100);
+  });
+});
 
 describe("overlapMs", () => {
   const { start, end } = jstMonthRangeToUtc("2026-05");
@@ -185,5 +207,22 @@ describe("computeMonthlySummary", () => {
     });
     // April ends at UTC 2026-04-30T15:00. Overlap is 13:00..15:00 = 2h.
     expect(april.perProject[0]!.hours).toBe(2);
+  });
+
+  it("請求額は100円単位未満を切り捨て", () => {
+    const summary = computeMonthlySummary({
+      yearMonth: "2026-05",
+      projects: [{ ...project, defaultHourlyRate: 3333 }],
+      entries: [
+        {
+          id: "1",
+          projectId: "p1",
+          startedAt: utc("2026-05-01T01:00:00Z"),
+          endedAt: utc("2026-05-01T02:00:00Z"),
+        },
+      ],
+      rates: [],
+    });
+    expect(summary.perProject[0]!.amount).toBe(3300);
   });
 });

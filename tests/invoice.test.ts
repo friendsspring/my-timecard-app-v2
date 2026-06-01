@@ -4,6 +4,7 @@ import {
   allocateInclusiveLineTotals,
   applyInvoiceTemplate,
   computeExclusiveFromSubtotal,
+  computeInclusiveFromTotal,
   formatHoursForInvoice,
   resolvePdfFilename,
   sanitizeFilenamePart,
@@ -44,19 +45,29 @@ describe("allocateInclusiveLineTotals", () => {
     });
   });
 
-  it("2行同額: 税込合計110に按分し行の和が一致", () => {
+  it("内税は明細をそのまま税込として扱い、合計は行の和", () => {
     const { inclusiveLines, total, S } = allocateInclusiveLineTotals([50, 50]);
     expect(S).toBe(100);
-    expect(total).toBe(110);
-    expect(inclusiveLines.reduce((a, b) => a + b, 0)).toBe(110);
-    expect(inclusiveLines[0]).toBe(55);
-    expect(inclusiveLines[1]).toBe(55);
+    expect(total).toBe(100);
+    expect(inclusiveLines.reduce((a, b) => a + b, 0)).toBe(100);
+    expect(inclusiveLines[0]).toBe(50);
+    expect(inclusiveLines[1]).toBe(50);
   });
 
-  it("按分後も行合計が T と一致（端数は最大剰余法）", () => {
-    const { inclusiveLines, total } = allocateInclusiveLineTotals([33, 67]);
-    expect(total).toBe(Math.round(100 * 1.1));
+  it("行の和がそのまま税込合計になる", () => {
+    const { inclusiveLines, total } = allocateInclusiveLineTotals([100, 200]);
+    expect(total).toBe(300);
     expect(inclusiveLines.reduce((a, b) => a + b, 0)).toBe(total);
+  });
+});
+
+describe("computeInclusiveFromTotal", () => {
+  it("税込合計を固定して税抜相当と税額を逆算", () => {
+    expect(computeInclusiveFromTotal(62_100)).toEqual({
+      subtotalExcl: 56_455,
+      implicitTax: 5_645,
+      totalIncl: 62_100,
+    });
   });
 });
 
