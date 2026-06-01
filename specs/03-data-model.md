@@ -9,7 +9,8 @@
 └──────────────┘   FK      └──────────────┘      │
        ▲                      │     *             │
        │                      ├── time_entries     │
-       │                      └── monthly_rates    │
+       │                      ├── monthly_rates    │
+       │                      └── project_invoice_extras │
        │ user_id                                  │
 ┌──────────────┐                                  │
 │ auth.users   │──────────────────────────────────┘
@@ -118,6 +119,31 @@ CREATE POLICY "own_projects" ON projects
 
 > 月次レートが存在しない月は `projects.default_hourly_rate` を適用する。
 
+### 3.2.4 `project_invoice_extras`
+
+請求書 PDF 用の **任意明細**（時給換算とは別）。プロジェクト × 対象月ごとに複数行登録可。
+
+| カラム | 型 | 制約 | 説明 |
+|--------|-----|------|------|
+| `id` | uuid | PK | |
+| `user_id` | uuid | NOT NULL | 所有者 |
+| `project_id` | uuid | NOT NULL, FK → `projects(id)` ON DELETE CASCADE | |
+| `year_month` | text | NOT NULL, regex `^\d{4}-(0[1-9]\|1[0-2])$` | 請求対象月 `"2026-05"` |
+| `label` | text | NOT NULL, length 1..120 | 項目名（例: 交通費） |
+| `amount` | integer | NOT NULL, ≥ 0 | 金額（円整数）。**100円切り捨ては適用しない**（入力値をそのまま `line_base` に使う） |
+| `sort_order` | integer | NOT NULL, default 0 | 同一プロジェクト・月内の表示順 |
+| `created_at` | timestamptz | NOT NULL, default `now()` | |
+| `updated_at` | timestamptz | NOT NULL, default `now()` | |
+
+**Index**: `(project_id, year_month)`（請求書集計時の取得用）。
+
+**RLS**:
+```sql
+CREATE POLICY "own_project_invoice_extras" ON project_invoice_extras
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+```
+
 ## 3.3 集計ロジック仕様
 
 入力: `userId`, `yearMonth (YYYY-MM)`, `tz = 'Asia/Tokyo'`。
@@ -144,8 +170,9 @@ CREATE POLICY "own_projects" ON projects
 ## 3.4 請求書用の集計
 
 - 対象プロジェクト集合: `billing_client_id = :clientId` かつ当該ユーザーの `projects`。
-- 各行の `hours`・`line_base`（課税標準）は **3.3 と同一手順**で算出する。
-- 税・合計・明細の税込按分・PDF 体裁は **`07-invoicing.md` に従う**（DB テーブルは追加しない。都度計算）。
+- **稼働行**: 各行の `hours`・`line_base`（課税標準）は **3.3 と同一手順**で算出する。稼働 0 時間のプロジェクトは稼働行を出さない。
+- **任意明細行**: 当該 `year_month` の `project_invoice_extras` をプロジェクトごとに読み、各行の `amount` を `line_base` として請求書に載せる（詳細は `07-invoicing.md` 7.2.4）。
+- 税・合計・明細の税込表示・PDF 体裁は **`07-invoicing.md` に従う**（請求書スナップショット用テーブルは持たない。都度計算）。
 
 ## 3.5 マイグレーション戦略
 
@@ -205,6 +232,18 @@ export const monthlyRates = pgTable("monthly_rates", {
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   yearMonth: text("year_month").notNull(),
   hourlyRate: integer("hourly_rate").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const projectInvoiceExtras = pgTable("project_invoice_extras", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  yearMonth: text("year_month").notNull(),
+  label: text("label").notNull(),
+  amount: integer("amount").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

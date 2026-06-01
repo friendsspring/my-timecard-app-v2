@@ -26,3 +26,10 @@ drop policy if exists "own_billing_clients" on "billing_clients";
 create policy "own_billing_clients" on "billing_clients"
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+alter table "project_invoice_extras" enable row level security;
+
+drop policy if exists "own_project_invoice_extras" on "project_invoice_extras";
+create policy "own_project_invoice_extras" on "project_invoice_extras"
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());

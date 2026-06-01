@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, ArchiveRestore, MoreVertical } from "lucide-react";
@@ -49,6 +50,10 @@ export function ProjectMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <Link href={`/projects/${project.id}`}>詳細を開く</Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <div className="px-1 py-1">
           <ProjectFormDialog mode="edit" project={project} billingClients={billingClients} />
         </div>

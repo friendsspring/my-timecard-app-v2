@@ -84,6 +84,9 @@
 - [ ] `/billing/[clientId]/invoice`（月次プレビュー + ダウンロード）
 - [ ] `/projects`・`/projects/[id]` に請求先セレクト追加
 - [ ] `invoice.test.ts`（外税・内税按分・0 件警告フラグ）
+- [ ] `project_invoice_extras` テーブル + `actions/project-invoice-extras.ts`
+- [ ] `/projects/[id]` 任意明細セクション、`/projects` から詳細へのリンク
+- [ ] 請求書プレビュー・PDF に稼働行 + 任意明細行（`invoice-lines.test.ts`）
 
 ## フェーズ 6: 仕上げ
 

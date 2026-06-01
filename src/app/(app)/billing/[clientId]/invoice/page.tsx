@@ -55,7 +55,7 @@ export default async function InvoicePage({
       ) : null}
       {preview.warnings.some((w) => w.code === "ALL_ZERO_HOURS") ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
-          紐づくプロジェクトはありますが、対象月の稼働がすべて 0 時間のため、明細は空です。PDF も同様です。
+          紐づくプロジェクトはありますが、対象月の稼働も任意明細もないため、明細は空です。PDF も同様です。
         </div>
       ) : null}
 
@@ -80,7 +80,7 @@ export default async function InvoicePage({
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="px-3 py-2 font-medium">プロジェクト</th>
+                    <th className="px-3 py-2 font-medium">項目</th>
                     <th className="px-3 py-2 font-medium text-right">稼働</th>
                     <th className="px-3 py-2 font-medium text-right">小計</th>
                   </tr>
@@ -93,10 +93,14 @@ export default async function InvoicePage({
                       </td>
                     </tr>
                   ) : (
-                    preview.lines.map((l) => (
-                      <tr key={l.projectId} className="border-t">
-                        <td className="px-3 py-2">{l.projectName}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{l.hours.toFixed(2)} h</td>
+                    preview.lines.map((l, i) => (
+                      <tr key={`${l.projectId}-${l.kind}-${l.label ?? ""}-${i}`} className="border-t">
+                        <td className="px-3 py-2">
+                          {l.kind === "hourly" ? l.projectName : `${l.projectName} — ${l.label}`}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {l.hours !== null ? `${l.hours.toFixed(2)} h` : "—"}
+                        </td>
                         <td className="px-3 py-2 text-right tabular-nums">{formatYen(l.displaySubtotal)}</td>
                       </tr>
                     ))
