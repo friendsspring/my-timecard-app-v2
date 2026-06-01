@@ -133,7 +133,8 @@ CREATE POLICY "own_projects" ON projects
    ```
 4. プロジェクト単位で `Σ overlapMs` を時間に変換。
 5. 該当月の `monthly_rates` があれば適用、なければ `projects.default_hourly_rate`。
-6. `amount = round(hours * rate)`（円未満は四捨五入）。
+6. `raw = round(hours * rate)`（円未満は四捨五入）。
+7. `amount = floor(raw / 100) * 100`（**100円単位未満は切り捨て**）。請求書の `line_base` も同一。
 
 > エッジケース：
 > - 月をまたぐ打刻は両月にそれぞれ案分。

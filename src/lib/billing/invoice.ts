@@ -13,7 +13,7 @@ export function computeExclusiveFromSubtotal(S: number): { subtotalExcl: number;
 }
 
 /**
- * 内税: 税込合計 T = round(S * 1.1)、明細は最大剰余法で T に配分（整数円）。
+ * 内税: 明細はすでに税込金額として扱い、合計は lineBases の和をそのまま使う。
  */
 export function allocateInclusiveLineTotals(lineBases: readonly number[]): { inclusiveLines: number[]; total: number; S: number } {
   const S = lineBases.reduce((a, b) => a + b, 0);
@@ -23,20 +23,20 @@ export function allocateInclusiveLineTotals(lineBases: readonly number[]): { inc
   if (S === 0) {
     return { inclusiveLines: lineBases.map(() => 0), total: 0, S: 0 };
   }
-  const T = roundHalfUpInt(S * 1.1);
-  const raw = lineBases.map((b) => (b / S) * T);
-  const floors = raw.map((x) => Math.floor(x));
-  let deficit = T - floors.reduce((a, b) => a + b, 0);
-  const order = raw
-    .map((x, i) => ({ i, r: x - floors[i]! }))
-    .sort((a, b) => b.r - a.r);
-  const inclusiveLines = [...floors];
-  for (let k = 0; k < order.length && deficit > 0; k++) {
-    const idx = order[k]!.i;
-    inclusiveLines[idx] = (inclusiveLines[idx] ?? 0) + 1;
-    deficit--;
-  }
-  return { inclusiveLines, total: T, S };
+  return { inclusiveLines: [...lineBases], total: S, S };
+}
+
+/**
+ * 内税: 税込合計を固定し、税抜相当と税額を内訳表示用に逆算する。
+ */
+export function computeInclusiveFromTotal(totalIncl: number): {
+  subtotalExcl: number;
+  implicitTax: number;
+  totalIncl: number;
+} {
+  const subtotalExcl = roundHalfUpInt(totalIncl / 1.1);
+  const implicitTax = totalIncl - subtotalExcl;
+  return { subtotalExcl, implicitTax, totalIncl };
 }
 
 export type TemplateContext = {

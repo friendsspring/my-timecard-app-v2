@@ -271,7 +271,7 @@ export function InvoicePdfDocument(props: InvoicePdfProps) {
         ) : null}
 
         <Text style={styles.note}>
-          ※ 単価は記載せず、小計のみ表示しています。内税の場合、明細小計は税込按分です。
+          ※ 単価は記載せず、小計のみ表示しています。内税の場合、明細小計は税込金額です。
         </Text>
       </Page>
     </Document>
